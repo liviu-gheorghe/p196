@@ -355,13 +355,10 @@ int main() {
             if(i_node_iterator >= BLOCK_SIZE) {
                 // Then it means that we need to advance pointer i and re-initialize i_node_iterator
                 // Update the first pointer
-                if(i != nullptr) {
-                    i = i->next;
-                    // Check if the advanced pointer is not null
-                    if(i != nullptr) {
-                        // Then update the i_node_iterator value
-                        i_node_iterator = i->first_free_position + 1;
-                    }
+                i = i->next;// Check if the advanced pointer is not null
+                if (i != nullptr) {
+                    // Then update the i_node_iterator value
+                    i_node_iterator = i->first_free_position + 1;
                 }
             }
 
@@ -369,9 +366,7 @@ int main() {
             // If i_node_iterator reached first_free_position
             if(j_node_iterator <= j->first_free_position) {
                 // Then it means that we need to advance pointer j and re-initialize j_node_iterator
-                if(j != nullptr) {
-
-                    /** If j points to the head of the list (the previous node is null) and the carry is 1,
+                /** If j points to the head of the list (the previous node is null) and the carry is 1,
                      then we have two options
 
 
@@ -379,22 +374,17 @@ int main() {
                      - Either create a new node and "pushFront" it. The value of this node will be obviously 1
 
                      **/
-
-                    // This logic is already implemented in the pushFront method, so we just call it with our data
-                    if(j->prev == nullptr && carry == 1) {
-                        pushFront(l,{1,1,0});
-                        // Now make j null in order to exit the loop
-                        j = nullptr;
-                    }
-
-
-                    // Check if the advanced pointer is not null
-                    if(j != nullptr) {
-                        // Update the second pointer
-                        j  = j->prev;
-                        // Then re-initialize the i_node_iterator value
-                        j_node_iterator = BLOCK_SIZE - 1;
-                    }
+                // This logic is already implemented in the pushFront method, so we just call it with our data
+                if (j->prev == nullptr && carry == 1) {
+                    pushFront(l, {1, 1, 0});
+                    // Now make j null in order to exit the loop
+                    j = nullptr;
+                }// Check if the advanced pointer is not null
+                if (j != nullptr) {
+                    // Update the second pointer
+                    j = j->prev;
+                    // Then re-initialize the i_node_iterator value
+                    j_node_iterator = BLOCK_SIZE - 1;
                 }
             }
         }
