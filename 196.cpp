@@ -3,9 +3,12 @@
 #include <ios>
 #include <iomanip>
 #include <vector>
+//#include<thread>
 
 using namespace std;
 
+
+int THREAD_COUNT;
 const unsigned int BLOCK_SIZE = 10000;
 
 // Struct describing the data of a DL List node
@@ -182,10 +185,10 @@ void printList(list*& l, bool reverse = false) {
     while(current != nullptr) {
 
         //cout << "NODE #" << nc << "\n";
-        nc++;
+        ++nc;
         // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
         // print the elements
-        for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;i++) {
+        for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
             cout << current->data[i].digit;
         }
 
@@ -202,6 +205,10 @@ int main() {
     //cout << "Introdu numarul de iteratii:";
     cout << "Start computation...\n";
     unsigned int n = 100000;
+
+    THREAD_COUNT = n / BLOCK_SIZE;
+
+    cout << "TREAD COUNT : " << THREAD_COUNT << "\n";
     //cin>>n;
 
     // Declare a list
@@ -298,17 +305,23 @@ int main() {
             while(i_node_iterator < BLOCK_SIZE && j_node_iterator > j->first_free_position) {
                 // Update the current sum
                 sum = i->data[i_node_iterator].old_digit + j->data[j_node_iterator].old_digit + carry;
-                i->data[i_node_iterator].visited++;
-                j->data[j_node_iterator].visited++;
+                ++i->data[i_node_iterator].visited;
+                ++j->data[j_node_iterator].visited;
 
                 // Put the sum in the current digit (we begin adding "from the back"). So the current digit is the one
                 // referenced by j
 
                 // Modulo 10 to handle overflow
+
+                //Don't do any "optimization" for modulo 10 - this is the fastest way to handle it
                 j->data[j_node_iterator].digit = sum % 10;
 
                 // Update the carry
-                carry = sum / 10;
+                //carry = sum / 10;
+                // Carry optimization - check if sum is bigger than 10 instead of division.
+                // On a 100k input with -Ofast, this saves roughly 1.2 SECONDS on my machine
+
+                carry = sum > 10 ? 1 : 0;
 
 
                 // If we got through a certain node already two times, then copy the new digit in the old digit and reset
@@ -327,8 +340,8 @@ int main() {
 
                 // Update the iterators
 
-                i_node_iterator++;
-                j_node_iterator--;
+                ++i_node_iterator;
+                --j_node_iterator;
 
             }
 
@@ -387,7 +400,7 @@ int main() {
         }
 
         // Update the counter
-        step++;
+        ++step;
     }
 
 
@@ -407,6 +420,34 @@ int main() {
 
     return 0;
 }
+
+
+// What is the probability of having a carry from a N digit number add-and reverse computation?
+/**
+ Let the number be of the following form
+        N = d1 d2 d3 d4 d5 d6 ... dn
+
+        So the computation that must be made has the following form:
+
+
+        d(1)   d(2)    d(3)    d(4)    d(5)    d(6)  .... d(n)
+        d(n)  d(n-1)  d(n-2)  d(n-3)  d(n-4)  d(n-5) .... d(1)
+
+         First of all, if (d(1) + d(n)) > 9 then we have a carry
+
+
+         All cases: d1 goes from 1 to 9, d2 goes from 1 to 9 => 81 total cases (the first digit of a number cannot be 0)
+
+        Compatible cases:
+
+         - d1 == 1 => d2 == 9 :  1 case
+         - d2 == 2 => d2 == {8,9}: 2 cases
+         - d2 == 3 => d2 == {7,8,9}: 3 cases
+         .....
+         - d2 = 9 => d2 == {1,2,3,4,5,6,7,8,9}: 9 cases
+
+         Total compatible cases: 9 * 8 / 2 = 36
+ */
 
 
   //g++ -faggressive-loop-optimizations  -fbranch-probabilities -fbranch-target-load-optimize -fbranch-target-load-optimize2 -fbtr-bb-exclusive           -fcaller-saves -fcombine-stack-adjustments  -fconserve-stack           -fcompare-elim  -fcprop-registers  -fcrossjumping           -fcse-follow-jumps  -fcse-skip-blocks  -fcx-fortran-rules           -fcx-limited-range -fdata-sections  -fdce  -fdelayed-branch           -fdelete-null-pointer-checks  -fdevirtualize           -fdevirtualize-speculatively -fdevirtualize-at-ltrans  -fdse           -fearly-inlining  -fipa-sra  -fexpensive-optimizations           -ffat-lto-objects -ffast-math  -ffinite-math-only           -ffloat-store -fno-ira-share-save-slots -fno-ira-share-spill-slots           -fisolate-erroneous-paths-dereference           -fisolate-erroneous-paths-attribute -fivopts           -fkeep-inline-functions  -fkeep-static-functions          -fkeep-static-consts  -flimit-function-alignment           -flive-range-shrinkage -floop-block  -floop-interchange           -floop-strip-mine -floop-unroll-and-jam  -floop-nest-optimize           -floop-parallelize-all -flra-remat  -flto       -fmerge-all-constants -fmerge-constants  -fmodulo-sched           -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fno-branch-count-reg -fno-defer-pop           -fno-fp-int-builtin-inexact  -fno-function-cse           -fno-guess-branch-probability  -fno-inline  -fno-math-errno           -fno-peephole -fno-peephole2  -fno-printf-return-value -fno-sched-interblock -fno-sched-spec  -fno-signed-zeros           -fno-toplevel-reorder  -fno-trapping-math           -fno-zero-initialized-in-bss -fomit-frame-pointer           -foptimize-sibling-calls -fpartial-inlining  -fpeel-loops           -fpredictive-commoning -fprefetch-loop-arrays           -fprofile-correction -fprofile-use -fno-sched-interblock -fno-sched-spec  -fno-signed-zeros           -fno-toplevel-reorder  -fno-trapping-math           -fno-zero-initialized-in-bss -fomit-frame-pointer -foptimize-sibling-calls -fpartial-inlining  -fpeel-loops  -fpredictive-commoning -fprefetch-loop-arrays  -fprofile-correction -fprofile-use -freorder-blocks-and-partition  -freorder-functions           -funsafe-math-optimizations   -ftree-sra -Ofascleart  -Og 196.cpp -o 196
