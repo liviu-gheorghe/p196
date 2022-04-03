@@ -3,6 +3,8 @@
 #include <ios>
 #include <iomanip>
 #include <vector>
+#include <time.h>
+#include <unistd.h>
 //#include<thread>
 
 using namespace std;
@@ -13,9 +15,9 @@ const unsigned int BLOCK_SIZE = 10000;
 
 // Struct describing the data of a DL List node
 struct node_data {
-    int digit{};
-    int old_digit{};
-    int visited = 0;
+    char digit{};
+    char old_digit{};
+    short visited = 0;
 };
 
 // Struct describing a DL List node
@@ -167,7 +169,7 @@ void pushNumberToList(list*& l, int number) {
 
          */
 
-        pushFront(l,{number % 10, number % 10, 0});
+        pushFront(l,{char(number % 10), char(number % 10), 0});
         number /= 10;
     }
 }
@@ -185,11 +187,11 @@ void printList(list*& l, bool reverse = false) {
     while(current != nullptr) {
 
         //cout << "NODE #" << nc << "\n";
-        ++nc;
+        //++nc;
         // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
         // print the elements
         for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
-            cout << current->data[i].digit;
+            cout << int(current->data[i].digit);
         }
 
         cout << "\n";
@@ -225,6 +227,12 @@ int main() {
     //exit(0);
 
 
+    // Measure time using c clock
+
+    double time_spent = 0.0;
+    clock_t begin_clock = clock();
+
+    // Measure time using chrono c++ lib
     // Start the timer in order to compute the CPU time of the iteration
 
     auto start = chrono::high_resolution_clock::now();
@@ -281,8 +289,6 @@ int main() {
          the list
         */
 
-
-
         // Initialize the two pointers
 
         i = l->first;
@@ -301,7 +307,6 @@ int main() {
 
             // For each node, loop through the populated data slots and make the necessary computation
 
-
             while(i_node_iterator < BLOCK_SIZE && j_node_iterator > j->first_free_position) {
                 // Update the current sum
                 sum = i->data[i_node_iterator].old_digit + j->data[j_node_iterator].old_digit + carry;
@@ -317,11 +322,8 @@ int main() {
                 j->data[j_node_iterator].digit = sum % 10;
 
                 // Update the carry
-                //carry = sum / 10;
-                // Carry optimization - check if sum is bigger than 10 instead of division.
-                // On a 100k input with -Ofast, this saves roughly 1.2 SECONDS on my machine
-
-                carry = sum > 9 ? 1 : 0;
+                //carry = sum > 9 ? 1 : 0;
+                carry = sum / 10;
 
 
                 // If we got through a certain node already two times, then copy the new digit in the old digit and reset
@@ -402,8 +404,17 @@ int main() {
     //printList(l);
 
 
+    clock_t end_clock = clock();
+
+    // calculate elapsed time by finding difference (end - begin) and
+    // dividing the difference by CLOCKS_PER_SEC to convert to seconds
+    time_spent += (double)(end_clock - begin_clock) / CLOCKS_PER_SEC ;
+    time_spent *= 1000;
+
+    printf("The elapsed time computed using C clock is %f ms\n", time_spent);
+
     // Print the execution time
-    cout << "EXECUTION TIME : " << fixed
+    cout << "EXECUTION TIME (chrono): " << fixed
          << time_taken << setprecision(9);
     cout << " ms" << endl;
 
