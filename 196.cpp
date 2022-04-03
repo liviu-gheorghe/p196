@@ -246,8 +246,8 @@ int main() {
     node* j;
 
 
-    int i_node_iterator;
-    int j_node_iterator;
+     register int i_node_iterator;
+     register int j_node_iterator;
 
     // Create a carry variable which will hold the "left to add" value for the next digit (initially 0)
     int carry = 0;
@@ -319,7 +319,7 @@ int main() {
                 // Modulo 10 to handle overflow
 
                 //Don't do any "optimization" for modulo 10 - this is the fastest way to handle it
-                j->data[j_node_iterator].digit = sum % 10;
+                j->data[j_node_iterator].digit = char(sum % 10);
 
                 // Update the carry
                 //carry = sum > 9 ? 1 : 0;
