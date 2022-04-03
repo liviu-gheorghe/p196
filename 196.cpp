@@ -12,19 +12,11 @@ using namespace std;
 
 int THREAD_COUNT;
 const unsigned int BLOCK_SIZE = 10000;
-
-// Struct describing the data of a DL List node
-struct node_data {
-    char digit{};
-    char old_digit{};
-    short visited = 0;
-};
-
 // Struct describing a DL List node
 struct node {
 
     // A node contains BLOCK_SIZE data slots
-    node_data data[BLOCK_SIZE];
+    char digit[BLOCK_SIZE];
     int first_free_position = BLOCK_SIZE - 1;
     node* next{};
     node* prev{};
@@ -54,12 +46,12 @@ struct list {
 // In the node, each node_data will be added from left to right in the data vector
 
 
-void pushBack(list*& l, node_data data, int hard_position = -1) {
+void pushBack(list*& l, char digit, int hard_position = -1) {
 
     //Check if the last node of the list has all block slots occupied
-    if(l->last != nullptr && l->last->first_free_position >=0) {
+    if(l->last != nullptr && l->last->first_free_position >= 0) {
         // just add the current data into the first available slot and update the first available slot position
-        l->last->data[l->last->first_free_position--] = data;
+        l->last->digit[l->last->first_free_position--] = digit;
         return;
     }
 
@@ -69,11 +61,11 @@ void pushBack(list*& l, node_data data, int hard_position = -1) {
     // Add the node data in the first available position for this block and update the first available slot unless
     // hard_position is not provided
     if(hard_position == -1) {
-        newNode->data[newNode->first_free_position--] = data;
+        newNode->digit[newNode->first_free_position--] = digit;
     } else {
         // If hard position is set, then put the data in the slot indicated by hard position. The caller of the function
         // will be responsible with updating the first free position of the node
-        newNode->data[hard_position] = data;
+        newNode->digit[hard_position] = digit;
     }
     newNode->next = nullptr;
 
@@ -98,15 +90,13 @@ void pushBack(list*& l, node_data data, int hard_position = -1) {
 }
 
 // Add a node to the beginning of the DL List
-void pushFront(list*& l, node_data data, int hard_position = -1) {
-
-
+void pushFront(list*& l, char digit, int hard_position = -1) {
 
     // Just like for pushBack, we need to check if the list has all block slots occupied
 
     if(l->first != nullptr && l->first->first_free_position >=0) {
         // just add the current data into the first available slot and update the first available slot position
-        l->first->data[l->first->first_free_position--] = data;
+        l->first->digit[l->first->first_free_position--] = digit;
         return;
     }
 
@@ -117,11 +107,11 @@ void pushFront(list*& l, node_data data, int hard_position = -1) {
     // Add the node data in the first available position for this block and update the first available slot unless
     // hard_position is not provided
     if(hard_position == -1) {
-        newNode->data[newNode->first_free_position--] = data;
+        newNode->digit[newNode->first_free_position--] = digit;
     } else {
         // If hard position is set, then put the data in the slot indicated by hard position. The caller of the function
         // will be responsible with updating the first free position of the node
-        newNode->data[hard_position] = data;
+        newNode->digit[hard_position] = digit;
     }
     newNode->next = nullptr;
 
@@ -169,7 +159,7 @@ void pushNumberToList(list*& l, int number) {
 
          */
 
-        pushFront(l,{char(number % 10), char(number % 10), 0});
+        pushFront(l,{char(number % 10)});
         number /= 10;
     }
 }
@@ -191,7 +181,7 @@ void printList(list*& l, bool reverse = false) {
         // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
         // print the elements
         for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
-            cout << int(current->data[i].digit);
+            cout << int(current->digit[i]);
         }
 
         cout << "\n";
@@ -204,7 +194,6 @@ void printList(list*& l, bool reverse = false) {
 
 int main() {
 
-    //cout << "Introdu numarul de iteratii:";
     cout << "Start computation...\n";
     unsigned int n = 100000;
 
@@ -221,11 +210,6 @@ int main() {
 
     // Add 196 to the list
     pushNumberToList(l,196);
-
-
-    //printList(l);
-    //exit(0);
-
 
     // Measure time using c clock
 
@@ -245,9 +229,8 @@ int main() {
     node* i;
     node* j;
 
-
-     register int i_node_iterator;
-     register int j_node_iterator;
+    register int i_node_iterator;
+    register int j_node_iterator;
 
     // Create a carry variable which will hold the "left to add" value for the next digit (initially 0)
     int carry = 0;
@@ -309,9 +292,7 @@ int main() {
 
             while(i_node_iterator < BLOCK_SIZE && j_node_iterator > j->first_free_position) {
                 // Update the current sum
-                sum = i->data[i_node_iterator].old_digit + j->data[j_node_iterator].old_digit + carry;
-                ++i->data[i_node_iterator].visited;
-                ++j->data[j_node_iterator].visited;
+                sum = (i->digit[i_node_iterator] & 0xF) + (j->digit[j_node_iterator] & 0xF) + carry;
 
                 // Put the sum in the current digit (we begin adding "from the back"). So the current digit is the one
                 // referenced by j
@@ -319,7 +300,7 @@ int main() {
                 // Modulo 10 to handle overflow
 
                 //Don't do any "optimization" for modulo 10 - this is the fastest way to handle it
-                j->data[j_node_iterator].digit = char(sum % 10);
+                j->digit[j_node_iterator] = j->digit[j_node_iterator] | ((sum % 10) << 4);
 
                 // Update the carry
                 //carry = sum > 9 ? 1 : 0;
@@ -328,17 +309,6 @@ int main() {
 
                 // If we got through a certain node already two times, then copy the new digit in the old digit and reset
                 // the counter
-
-                if(i->data[i_node_iterator].visited == 2) {
-                    i->data[i_node_iterator].old_digit = i->data[i_node_iterator].digit;
-                    i->data[i_node_iterator].visited = 0;
-                }
-
-
-                if(j->data[j_node_iterator].visited == 2) {
-                    j->data[j_node_iterator].old_digit = j->data[j_node_iterator].digit;
-                    j->data[j_node_iterator].visited = 0;
-                }
 
                 // Update the iterators
 
@@ -378,7 +348,7 @@ int main() {
                      **/
                 // This logic is already implemented in the pushFront method, so we just call it with our data
                 if (j->prev == nullptr && carry == 1) {
-                    pushFront(l, {1, 1, 0});
+                    pushFront(l, {(1 << 4)});
                     // Now make j null in order to exit the loop
                     j = nullptr;
                 }// Check if the advanced pointer is not null
@@ -389,6 +359,18 @@ int main() {
                     j_node_iterator = BLOCK_SIZE - 1;
                 }
             }
+        }
+
+
+        // Now loop through all the data from all the nodes and shift the data from the upper nybble to the lower nybble
+
+
+        i = l->first;
+        while(i != nullptr) {
+            for(i_node_iterator = i->first_free_position + 1; i_node_iterator < BLOCK_SIZE; i_node_iterator++) {
+                i->digit[i_node_iterator] = (i->digit[i_node_iterator] >> 4) & 0xF;
+            }
+            i = i->next;
         }
 
         // Update the counter
