@@ -1,27 +1,48 @@
 #include <iostream>
 #include <chrono>
 #include <ios>
-#include <iomanip>
+#include <ctime>
+#include <fstream>
 #include <vector>
-#include <time.h>
-#include <unistd.h>
-//#include<thread>
+#include<thread>
+// unistd header -only for Linux
+//#ifdef linux
+//#include <unistd.h>
+//#endif
 
 using namespace std;
 
 
 int THREAD_COUNT;
-const unsigned int BLOCK_SIZE = 10000;
+const unsigned int BLOCK_SIZE = 25000;
 // Struct describing a DL List node
-struct node {
 
+
+// generates_carry[i] "knows" if the block with index 0 will yield a carry for the next block
+vector<bool> generates_carry = vector<bool>();
+
+
+// array which will hold the thread objects that will be spawned in order to compute the additions for each block
+
+
+vector<std::thread> threadPool = vector<std::thread>();
+
+struct node {
+    static int count;
     // A node contains BLOCK_SIZE data slots
-    char digit[BLOCK_SIZE];
+    char digit[BLOCK_SIZE]{};
+    char symmetric_digit[BLOCK_SIZE]{};
     int first_free_position = BLOCK_SIZE - 1;
+    int index;
     node* next{};
     node* prev{};
+
+    node() {
+        this->index = count++;
+    }
 };
 
+int node::count = 0;
 
 // Struct describing a DL List
 struct list {
@@ -45,58 +66,16 @@ struct list {
 // The creation of a node is done when a push occurs, with a certain node data.
 // In the node, each node_data will be added from left to right in the data vector
 
-
-void pushBack(list*& l, char digit, int hard_position = -1) {
-
-    //Check if the last node of the list has all block slots occupied
-    if(l->last != nullptr && l->last->first_free_position >= 0) {
-        // just add the current data into the first available slot and update the first available slot position
-        l->last->digit[l->last->first_free_position--] = digit;
-        return;
-    }
-
-    // Else, a new node must be added
-
-    node* newNode = new node;
-    // Add the node data in the first available position for this block and update the first available slot unless
-    // hard_position is not provided
-    if(hard_position == -1) {
-        newNode->digit[newNode->first_free_position--] = digit;
-    } else {
-        // If hard position is set, then put the data in the slot indicated by hard position. The caller of the function
-        // will be responsible with updating the first free position of the node
-        newNode->digit[hard_position] = digit;
-    }
-    newNode->next = nullptr;
-
-
-    // if the last node of the list is null, then the list is empty
-    // This means we need to assign the newNode pointer both to head and tail
-    if(l->last == nullptr) {
-        l->first = newNode;
-        l->last = newNode;
-        return;
-    }
-
-    // if we have a non-empty list, then do the following
-    // The prev node of newNode becomes the current last node
-    newNode->prev = l->last;
-    // Next node of newNode will be null
-    newNode->next = nullptr;
-    // The next node of the current last node becomes newNode
-    l->last->next = newNode;
-    // The last node becomes newNode
-    l->last = newNode;
-}
-
 // Add a node to the beginning of the DL List
-void pushFront(list*& l, char digit, int hard_position = -1) {
+void pushFront(list*& l, char digit, char symmetric_digit, int hard_position = -1) {
 
     // Just like for pushBack, we need to check if the list has all block slots occupied
 
     if(l->first != nullptr && l->first->first_free_position >=0) {
         // just add the current data into the first available slot and update the first available slot position
-        l->first->digit[l->first->first_free_position--] = digit;
+        l->first->digit[l->first->first_free_position] = digit;
+        l->first->symmetric_digit[l->first->first_free_position] = symmetric_digit;
+        l->first->first_free_position--;
         return;
     }
 
@@ -104,14 +83,22 @@ void pushFront(list*& l, char digit, int hard_position = -1) {
 
 
     node* newNode = new node;
+    // Allocate space for the block in the generates_carry array
+    generates_carry.push_back(false);
+    // Allocate space for in the threadPool for another thread that will manage
+    // the computation for this block
+    threadPool.emplace_back();
     // Add the node data in the first available position for this block and update the first available slot unless
     // hard_position is not provided
     if(hard_position == -1) {
-        newNode->digit[newNode->first_free_position--] = digit;
+        newNode->digit[newNode->first_free_position] = digit;
+        newNode->symmetric_digit[newNode->first_free_position] = symmetric_digit;
+        newNode->first_free_position--;
     } else {
         // If hard position is set, then put the data in the slot indicated by hard position. The caller of the function
         // will be responsible with updating the first free position of the node
         newNode->digit[hard_position] = digit;
+        newNode->symmetric_digit[hard_position] = symmetric_digit;
     }
     newNode->next = nullptr;
 
@@ -142,6 +129,16 @@ void pushNumberToList(list*& l, int number) {
     // Because pushing with blocks puts the current digit on the leftmost position, we
     // can insert the digits of the number in reverse order
 
+    int reversedNumber = 0;
+    int numberCopy = number;
+    while(numberCopy) {
+        reversedNumber = reversedNumber * 10 + numberCopy % 10;
+        numberCopy /= 10;
+    }
+
+    //cout << "Reversed number  = " << reversedNumber << "\n";
+    // Also, we need to insert the symmetric digit of the current digit
+
     while(number) {
         // We need to push front because the order of the blocks matter
 
@@ -159,38 +156,95 @@ void pushNumberToList(list*& l, int number) {
 
          */
 
-        pushFront(l,{char(number % 10)});
+        pushFront(l,char(number % 10), char(reversedNumber % 10));
         number /= 10;
+        reversedNumber /= 10;
     }
 }
-
-void printList(list*& l, bool reverse = false) {
-    // Print the list on the screen
-
-
-    // If reverse is set to true, the current node becomes the last node instead of fist node
-    node* current = reverse ? l->last : l->first;
-
-
-    int nc = 0;
-
-    while(current != nullptr) {
-
-        //cout << "NODE #" << nc << "\n";
-        //++nc;
-        // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
-        // print the elements
-        for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
-            cout << int(current->digit[i]);
-        }
-
-        cout << "\n";
-        // If reverse is set to true, the current node becomes the prev node instead of next node
-        current = reverse ? current->prev : current->next;
-    }
-
-    cout << '\n';
-}
+//
+//void printList(list*& l, bool reverse = false, bool debug = false, bool symmetric_only = false,  string filename = "") {
+//    // Print the list on the screen
+//
+//
+//    // If reverse is set to true, the current node becomes the last node instead of fist node
+//    node* current = reverse ? l->last : l->first;
+//
+//
+//    int nc = 0;
+//    // If a file name is provided, then write the output to that file
+//    ofstream fout;
+//    if(!filename.empty()) {
+//        fout.open(filename);
+//    }
+//
+//    while(current != nullptr) {
+//
+//        if(debug) {
+//            cout << "NODE #" << nc << "(addr -> " << current << ")" << " idx = " << current->index <<  "\n";
+//            ++nc;
+//        }
+//        // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
+//        // print the elements
+//        for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
+//            if(!filename.empty()) {
+//                fout << int(current->digit[i]& 0xF);
+//                if (debug) {
+//                    // If debug is set to true, also print the symmetric digit
+//                    //fout << " r[" << int(current->symmetric_digit[i] & 0xF) << "] ";
+//                    cout << ' ';
+//                }
+//            }
+//            else {
+//                if(!symmetric_only) {
+//                    cout << int(current->digit[i] & 0xF);
+//                }
+//                if (debug) {
+//                    // If debug is set to true, also print the symmetric digit
+//                    if(symmetric_only) {
+//                        cout << int(current->symmetric_digit[i] & 0xF);
+//                    }
+//                    else {
+//                        cout << " r[" << int(current->symmetric_digit[i] & 0xF) << "] ";
+//                    }
+//                   cout << ' ';
+//                }
+//            }
+//        }
+//
+//        if(debug) {
+//            if(!filename.empty()) {
+//                fout << "\n";
+//            } else {
+//                cout << "\n";
+//            }
+//        }
+//        // If reverse is set to true, the current node becomes the prev node instead of next node
+//        current = reverse ? current->prev : current->next;
+//    }
+//
+//    cout << '\n';
+//}
+//
+//
+//void printList2(list*& l) {
+//
+//    // If reverse is set to true, the current node becomes the last node instead of fist node
+//    node* current = l->last;
+//
+//    while(current != nullptr) {
+//
+//        // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
+//        // print the elements
+//        for(int i = BLOCK_SIZE - 1;i > current->first_free_position;i--) {
+//            cout << int(current->symmetric_digit[i] & 0xF);
+//        }
+//
+//        // If reverse is set to true, the current node becomes the prev node instead of next node
+//        current = current->prev;
+//    }
+//
+//    cout << '\n';
+//}
 
 int main() {
 
@@ -220,7 +274,7 @@ int main() {
     // Start the timer in order to compute the CPU time of the iteration
 
     auto start = chrono::high_resolution_clock::now();
-    ios_base::sync_with_stdio(false);
+    //ios_base::sync_with_stdio(false);
 
     // Variable holding the current interation
     int step = 1;
@@ -237,10 +291,19 @@ int main() {
     // Create a sum variable to hold the current sum
     int sum = 0;
 
+    int carry_propagated = 0;
 
+    int block_id;
+
+
+    bool second_half;
+    bool current_generates_carry;
     // While the current iteration count is less than the number of required iterations
+    bool first_block_carry_generated;
     while(step <= n) {
 
+        first_block_carry_generated = false;
+        carry_propagated = 0;
 
 //        if(step % 1000) {
 //            cout << step << "\n";
@@ -272,103 +335,125 @@ int main() {
          the list
         */
 
-        // Initialize the two pointers
+        // Pt ca am salvat pt fiecare bloc si simetricul, nu mai e nevoie sa "calculam coordonatele" ferestrei curente
+        // de procesare, si putem pur si simplu sa calculam cate un bloc in paralel
 
-        i = l->first;
-        j = l->last;
-        // Init the carry with 0
-        carry = 0;
+        // Actualizam generates_carry pt fiecare block
 
-        // Start from first_free_position + 1 for i node
-        i_node_iterator = i->first_free_position + 1;
-        //Start from BLOCK_SIZE - 1 for j node
-        j_node_iterator = BLOCK_SIZE - 1;
-
-        while(i != nullptr && j != nullptr) {
+        // Nu conteaza de unde incepem (primul sau ultimul nod)
 
 
-
-            // For each node, loop through the populated data slots and make the necessary computation
-
-            while(i_node_iterator < BLOCK_SIZE && j_node_iterator > j->first_free_position) {
-                // Update the current sum
-                sum = (i->digit[i_node_iterator] & 0xF) + (j->digit[j_node_iterator] & 0xF) + carry;
-
-                // Put the sum in the current digit (we begin adding "from the back"). So the current digit is the one
-                // referenced by j
-
-                // Modulo 10 to handle overflow
-
-                //Don't do any "optimization" for modulo 10 - this is the fastest way to handle it
-                j->digit[j_node_iterator] = j->digit[j_node_iterator] | ((sum % 10) << 4);
-
-                // Update the carry
-                //carry = sum > 9 ? 1 : 0;
-                carry = sum / 10;
-
-
-                // If we got through a certain node already two times, then copy the new digit in the old digit and reset
-                // the counter
-
-                // Update the iterators
-
-                ++i_node_iterator;
-                --j_node_iterator;
-
-            }
-
-            // If one of the iterators hasn't finished going through all the slots, do not go to the next node.
-            // Instead, keep the value of [i/j]_node_iterator untouched and increment go to the next / prev node
-            // with the other list iterator
-
-
-            // If i_node_iterator reached BLOCK_SIZE
-
-            if(i_node_iterator >= BLOCK_SIZE) {
-                // Then it means that we need to advance pointer i and re-initialize i_node_iterator
-                // Update the first pointer
-                i = i->next;// Check if the advanced pointer is not null
-                if (i != nullptr) {
-                    // Then update the i_node_iterator value
-                    i_node_iterator = i->first_free_position + 1;
-                }
-            }
-
-            // Same logic for j_node_iterator
-            // If i_node_iterator reached first_free_position
-            if(j_node_iterator <= j->first_free_position) {
-                // Then it means that we need to advance pointer j and re-initialize j_node_iterator
-                /** If j points to the head of the list (the previous node is null) and the carry is 1,
-                     then we have two options
-
-
-                     - Either push the data into the first slot available of the first node if we still have space
-                     - Either create a new node and "pushFront" it. The value of this node will be obviously 1
-
-                     **/
-                // This logic is already implemented in the pushFront method, so we just call it with our data
-                if (j->prev == nullptr && carry == 1) {
-                    pushFront(l, {(1 << 4)});
-                    // Now make j null in order to exit the loop
-                    j = nullptr;
-                }// Check if the advanced pointer is not null
-                if (j != nullptr) {
-                    // Update the second pointer
-                    j = j->prev;
-                    // Then re-initialize the i_node_iterator value
-                    j_node_iterator = BLOCK_SIZE - 1;
-                }
-            }
-        }
-
-
-        // Now loop through all the data from all the nodes and shift the data from the upper nybble to the lower nybble
-
+//        if(step == 501) {
+//
+//            printList(l, false, true);
+//            cout << "\n\n";
+//
+//            printList2(l);
+//        }
 
         i = l->first;
         while(i != nullptr) {
+
+            current_generates_carry = false;
+            i_node_iterator = i->first_free_position +1;
+            while(true) {
+                // If the current (digit + symmetric digit is >= 10), then the block yields a carry
+                if(i->digit[i_node_iterator] + i->symmetric_digit[i_node_iterator] >= 10) {
+                    current_generates_carry = true;
+                    break;
+                }
+                else if(i->digit[i_node_iterator] + i->symmetric_digit[i_node_iterator] < 9) {
+                    break;
+                } else {
+                    // The current sum is 9
+                    // If we are at the end of the block (very unlikely if the block size is big), then
+                    // just break - no carry
+                    // Else increment the i_node_iterator
+                    if(i_node_iterator >= BLOCK_SIZE - 1) {
+                        break;
+                    }
+                    else {
+                        i_node_iterator++;
+                    }
+                }
+            }
+            generates_carry[i->index] = current_generates_carry;
+            //cout << "Blocul " << i->index << (current_generates_carry ? " genereaza carry\n": " nu genereaza carry\n");
+            i = i->next;
+        }
+
+
+        i = l->first;
+
+        while(i != nullptr) {
+
+
+            block_id = i->index;
+
+            threadPool[block_id] = std::thread([i, block_id, &first_block_carry_generated]() {
+
+                int carry = 0;
+                int sum;
+                if(block_id > 0) {
+                    // The initial carry for this block is 1 if the previous block generated a carry
+                    carry = generates_carry[block_id - 1];
+                }
+
+                for(int current_digit_idx = BLOCK_SIZE - 1; current_digit_idx > i->first_free_position; current_digit_idx--) {
+                    sum = (i->digit[current_digit_idx]  & 0xF) + (i->symmetric_digit[current_digit_idx]) + carry;
+                    i->digit[current_digit_idx] = i->digit[current_digit_idx] | ((sum % 10) << 4);
+                    carry = sum / 10;
+                }
+
+                if(i->prev == nullptr && carry == 1) {
+                    first_block_carry_generated = true;
+                }
+
+            });
+
+            i = i->next;
+
+        }
+
+
+        for(block_id = 0; block_id < node::count; block_id++) {
+            threadPool[block_id].join();
+        }
+
+
+        if(first_block_carry_generated) {
+            pushFront(l, (1 << 4) | 1, 0);
+        }
+
+        i = l->first;
+        j = l->last;
+        j_node_iterator = BLOCK_SIZE - 1;
+
+        second_half = false;
+
+
+        // Aggregation step, shift all the values from the upper nybble to the lower nybble and update the
+        // symmetric digit for each digit
+
+
+        // Also, find a faster way to check if we're in the second half (cache the prev second half and
+        // update the middle position when a new digit is inserted in the list)
+
+        while(i != nullptr) {
             for(i_node_iterator = i->first_free_position + 1; i_node_iterator < BLOCK_SIZE; i_node_iterator++) {
+
+
+                second_half = second_half | ((i==j && i_node_iterator >= j_node_iterator) || (i->index < j->index));
+
                 i->digit[i_node_iterator] = (i->digit[i_node_iterator] >> 4) & 0xF;
+                i->symmetric_digit[i_node_iterator] = (j->digit[j_node_iterator] >> (4 * !(second_half))) & 0xF;
+                if(j_node_iterator == 0) {
+                    j_node_iterator = BLOCK_SIZE - 1;
+                    j = j->prev;
+                }
+                else {
+                    j_node_iterator--;
+                }
             }
             i = i->next;
         }
@@ -383,7 +468,6 @@ int main() {
     double time_taken =  chrono::duration_cast<chrono::nanoseconds>(end - start).count();
     time_taken *= 1e-6;
 
-    //printList(l);
 
 
     clock_t end_clock = clock();
@@ -396,11 +480,21 @@ int main() {
     printf("The elapsed time computed using C clock is %f ms\n", time_spent);
 
     // Print the execution time
-    cout << "EXECUTION TIME (chrono): " << fixed
-         << time_taken << setprecision(9);
+    cout << "EXECUTION TIME (chrono): " << time_taken;
     cout << " ms" << endl;
 
 
+    // ndig = 41490 for 100k iterations
+
+
+//    if(!carry_propagated) {
+//        cout << "The number has reached a palindrome after " << step << " iterations\n";
+//    }
+//
+//    printList(l, false, true);
+//    cout << "\n\n";
+//
+//    printList2(l);
     return 0;
 }
 
