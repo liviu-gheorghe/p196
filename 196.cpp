@@ -87,7 +87,7 @@ void pushFront(list*& l, char digit, char symmetric_digit, int hard_position = -
     generates_carry.push_back(false);
     // Allocate space for in the threadPool for another thread that will manage
     // the computation for this block
-    threadPool.emplace_back();
+    //threadPool.emplace_back();
     // Add the node data in the first available position for this block and update the first available slot unless
     // hard_position is not provided
     if(hard_position == -1) {
@@ -270,11 +270,30 @@ int main() {
     double time_spent = 0.0;
     clock_t begin_clock = clock();
 
+
+
+
+
+    double time_spent_section1 = 0.00;
+    clock_t begin_clock_section1 = clock();
+
+
+
+
+    double time_spent_section2 = 0.00;
+    clock_t begin_clock_section2 = clock();
+
+
+
+    double time_spent_section3 = 0.00;
+    clock_t begin_clock_section3 = clock();
+
+
     // Measure time using chrono c++ lib
     // Start the timer in order to compute the CPU time of the iteration
 
     auto start = chrono::high_resolution_clock::now();
-    //ios_base::sync_with_stdio(false);
+    ios_base::sync_with_stdio(false);
 
     // Variable holding the current interation
     int step = 1;
@@ -302,6 +321,11 @@ int main() {
     bool first_block_carry_generated;
     while(step <= n) {
 
+        begin_clock_section1 = clock();
+
+
+
+        threadPool.clear();
         first_block_carry_generated = false;
         carry_propagated = 0;
 
@@ -383,14 +407,21 @@ int main() {
         }
 
 
+
+        time_spent_section1 += double(clock() - begin_clock_section1) / CLOCKS_PER_SEC;
+
+
         i = l->first;
+
+
+        begin_clock_section2 = clock();
 
         while(i != nullptr) {
 
 
             block_id = i->index;
 
-            threadPool[block_id] = std::thread([i, block_id, &first_block_carry_generated]() {
+            threadPool.emplace_back([i, block_id, &first_block_carry_generated]() {
 
                 int carry = 0;
                 int sum;
@@ -409,7 +440,8 @@ int main() {
                     first_block_carry_generated = true;
                 }
 
-            });
+            }
+            );
 
             i = i->next;
 
@@ -424,6 +456,15 @@ int main() {
         if(first_block_carry_generated) {
             pushFront(l, (1 << 4) | 1, 0);
         }
+
+
+
+        time_spent_section2 += double(clock() - begin_clock_section2) / CLOCKS_PER_SEC;
+
+
+
+
+        begin_clock_section3 = clock();
 
         i = l->first;
         j = l->last;
@@ -458,6 +499,10 @@ int main() {
             i = i->next;
         }
 
+
+        time_spent_section3 += double(clock() - begin_clock_section3) / CLOCKS_PER_SEC;
+
+
         // Update the counter
         ++step;
     }
@@ -482,6 +527,14 @@ int main() {
     // Print the execution time
     cout << "EXECUTION TIME (chrono): " << time_taken;
     cout << " ms" << endl;
+
+
+
+
+
+    cout << "TIME SPENT ON SECTION 1 (ms): " << time_spent_section1 * 1e3 << "\n";
+    cout << "TIME SPENT ON SECTION 2 (ms): " << time_spent_section2 * 1e3 << "\n";
+    cout << "TIME SPENT ON SECTION 3 (ms): " << time_spent_section3 * 1e3 << "\n";
 
 
     // ndig = 41490 for 100k iterations
