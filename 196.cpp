@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <vector>
 #include <time.h>
+#include <fstream>
 #include <unistd.h>
 //#include<thread>
 
@@ -164,9 +165,15 @@ void pushNumberToList(list*& l, int number) {
     }
 }
 
-void printList(list*& l, bool reverse = false) {
+void printList(list*& l, bool reverse = false, const string& filename = "") {
     // Print the list on the screen
 
+
+        // If a file name is provided, then write the output to that file
+        ofstream fout;
+        if(!filename.empty()) {
+            fout.open(filename);
+        }
 
     // If reverse is set to true, the current node becomes the last node instead of fist node
     node* current = reverse ? l->last : l->first;
@@ -181,10 +188,15 @@ void printList(list*& l, bool reverse = false) {
         // For the current node, we just need to loop from first_free_position + 1 to BLOCK_SIZE - 1 and
         // print the elements
         for(unsigned int i = current->first_free_position+1;i < BLOCK_SIZE;++i) {
-            cout << int(current->digit[i]);
+            if(!filename.empty()) {
+                fout << int(current->digit[i]);
+            }
+            else {
+                cout << int(current->digit[i]);
+            }
         }
 
-        cout << "\n";
+        //cout << "\n";
         // If reverse is set to true, the current node becomes the prev node instead of next node
         current = reverse ? current->prev : current->next;
     }
@@ -199,7 +211,6 @@ int main() {
 
     THREAD_COUNT = n / BLOCK_SIZE;
 
-    cout << "TREAD COUNT : " << THREAD_COUNT << "\n";
     //cin>>n;
 
     // Declare a list
@@ -210,6 +221,9 @@ int main() {
 
     // Add 196 to the list
     pushNumberToList(l,196);
+
+    bool palindrome;
+    bool stop = false;
 
     // Measure time using c clock
 
@@ -240,6 +254,8 @@ int main() {
 
     // While the current iteration count is less than the number of required iterations
     while(step <= n) {
+
+        palindrome = true;
 
 
 //        if(step % 1000) {
@@ -373,6 +389,34 @@ int main() {
             i = i->next;
         }
 
+
+        // Check if the resulted number is palindrome
+        i = l->first;
+        j = l->last;
+        j_node_iterator = BLOCK_SIZE - 1;
+        while(i != nullptr) {
+            for(i_node_iterator = i->first_free_position + 1; i_node_iterator < BLOCK_SIZE; i_node_iterator++) {
+                if(i->digit[i_node_iterator] != j->digit[j_node_iterator]) {
+                    palindrome = false;
+                    break;
+                }
+                if(!palindrome) break;
+                if(j_node_iterator > j->first_free_position + 1) {
+                    j_node_iterator--;
+                }
+                else {
+                    j_node_iterator = BLOCK_SIZE - 1;
+                    j = j->prev;
+                }
+            }
+            i = i->next;
+        }
+
+        if(palindrome) {
+            stop = true;
+            break;
+        }
+
         // Update the counter
         ++step;
     }
@@ -400,6 +444,14 @@ int main() {
          << time_taken << setprecision(9);
     cout << " ms" << endl;
 
+
+
+    if(stop) {
+        cout << "The number has reached a palidrome after " << step << " iterations";
+    }
+
+
+    printList(l, false, "output.txt");
 
     return 0;
 }
