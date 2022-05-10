@@ -451,7 +451,7 @@ int main() {
     }
 
 
-    printList(l, false, "output.txt");
+    //printList(l, false, "output.txt");
 
     return 0;
 }
