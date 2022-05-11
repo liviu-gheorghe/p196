@@ -457,32 +457,5 @@ int main() {
 }
 
 
-// What is the probability of having a carry from a N digit number add-and reverse computation?
-/**
- Let the number be of the following form
-        N = d1 d2 d3 d4 d5 d6 ... dn
-
-        So the computation that must be made has the following form:
-
-
-        d(1)   d(2)    d(3)    d(4)    d(5)    d(6)  .... d(n)
-        d(n)  d(n-1)  d(n-2)  d(n-3)  d(n-4)  d(n-5) .... d(1)
-
-         First of all, if (d(1) + d(n)) > 9 then we have a carry
-
-
-         All cases: d1 goes from 1 to 9, d2 goes from 1 to 9 => 81 total cases (the first digit of a number cannot be 0)
-
-        Compatible cases:
-
-         - d1 == 1 => d2 == 9 :  1 case
-         - d2 == 2 => d2 == {8,9}: 2 cases
-         - d2 == 3 => d2 == {7,8,9}: 3 cases
-         .....
-         - d2 = 9 => d2 == {1,2,3,4,5,6,7,8,9}: 9 cases
-
-         Total compatible cases: 9 * 8 / 2 = 36
- */
-
 
 //g++ -faggressive-loop-optimizations  -fbranch-probabilities -fbranch-target-load-optimize -fbranch-target-load-optimize2 -fbtr-bb-exclusive           -fcaller-saves -fcombine-stack-adjustments  -fconserve-stack           -fcompare-elim  -fcprop-registers  -fcrossjumping           -fcse-follow-jumps  -fcse-skip-blocks  -fcx-fortran-rules           -fcx-limited-range -fdata-sections  -fdce  -fdelayed-branch           -fdelete-null-pointer-checks  -fdevirtualize           -fdevirtualize-speculatively -fdevirtualize-at-ltrans  -fdse           -fearly-inlining  -fipa-sra  -fexpensive-optimizations           -ffat-lto-objects -ffast-math  -ffinite-math-only           -ffloat-store -fno-ira-share-save-slots -fno-ira-share-spill-slots           -fisolate-erroneous-paths-dereference           -fisolate-erroneous-paths-attribute -fivopts           -fkeep-inline-functions  -fkeep-static-functions          -fkeep-static-consts  -flimit-function-alignment           -flive-range-shrinkage -floop-block  -floop-interchange           -floop-strip-mine -floop-unroll-and-jam  -floop-nest-optimize           -floop-parallelize-all -flra-remat  -flto       -fmerge-all-constants -fmerge-constants  -fmodulo-sched           -fmodulo-sched-allow-regmoves -fmove-loop-invariants -fno-branch-count-reg -fno-defer-pop           -fno-fp-int-builtin-inexact  -fno-function-cse           -fno-guess-branch-probability  -fno-inline  -fno-math-errno           -fno-peephole -fno-peephole2  -fno-printf-return-value -fno-sched-interblock -fno-sched-spec  -fno-signed-zeros           -fno-toplevel-reorder  -fno-trapping-math           -fno-zero-initialized-in-bss -fomit-frame-pointer           -foptimize-sibling-calls -fpartial-inlining  -fpeel-loops           -fpredictive-commoning -fprefetch-loop-arrays           -fprofile-correction -fprofile-use -fno-sched-interblock -fno-sched-spec  -fno-signed-zeros           -fno-toplevel-reorder  -fno-trapping-math           -fno-zero-initialized-in-bss -fomit-frame-pointer -foptimize-sibling-calls -fpartial-inlining  -fpeel-loops  -fpredictive-commoning -fprefetch-loop-arrays  -fprofile-correction -fprofile-use -freorder-blocks-and-partition  -freorder-functions           -funsafe-math-optimizations   -ftree-sra -Ofascleart  -Og 196.cpp -o 196
